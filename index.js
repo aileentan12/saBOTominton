@@ -10,7 +10,8 @@ const client = new Client({
   partials: [Partials.Message, Partials.Channel],
 });
 
-const CHANNEL_ID = process.env.CHANNEL_ID;
+const SOURCE_CHANNEL_ID = process.env.SOURCE_CHANNEL_ID;
+const TARGET_CHANNEL_ID = process.env.TARGET_CHANNEL_ID;
 const BOT_TOKEN = process.env.BOT_TOKEN;
 
 // Tracks ongoing command sessions: userId -> { step, rawList, command }
@@ -227,12 +228,12 @@ async function getVolunteersForDate(channel, targetDate) {
   return { volunteers, time: sessionTime, venueCode: sessionVenue };
 }
 
-async function generateMondayList(channel) {
+async function generateMondayList(sourceChannel, targetChannel) {
   const saturday = getNextSaturday();
-  const result = await getVolunteersForDate(channel, saturday);
+  const result = await getVolunteersForDate(sourceChannel, saturday);
 
   if (!result) {
-    await channel.send(
+    await targetChannel.send(
       `⚠️ Could not find a schedule entry for **${formatDate(saturday)}** in this channel. Please check the schedule post.`
     );
     return;
@@ -276,10 +277,10 @@ async function generateMondayList(channel) {
   const fullMessage = header + slotList + waitlist;
 
   if (fullMessage.length <= 2000) {
-    await channel.send(fullMessage);
+    await targetChannel.send(fullMessage);
   } else {
-    await channel.send(header);
-    await channel.send(slotList + waitlist);
+    await targetChannel.send(header);
+    await targetChannel.send(slotList + waitlist);
   }
 }
 
@@ -427,7 +428,7 @@ async function handleSlotCountReply(message, slotCount) {
 
 client.on('messageCreate', async (message) => {
   if (message.author.bot) return;
-  if (message.channelId !== CHANNEL_ID) return;
+  if (message.channelId !== TARGET_CHANNEL_ID) return;
 
   const content = message.content.trim();
   const userId = message.author.id;
@@ -459,8 +460,8 @@ client.on('messageCreate', async (message) => {
 
   // !generatelist — manual trigger for testing
   if (content === '!generatelist') {
-    const channel = await client.channels.fetch(CHANNEL_ID);
-    await generateMondayList(channel);
+    const sourceChannel = await client.channels.fetch(SOURCE_CHANNEL_ID);
+    await generateMondayList(sourceChannel, message.channel);
     return;
   }
 
@@ -495,8 +496,9 @@ client.on('messageCreate', async (message) => {
 // Monday 6:56PM PHT = Monday 10:56 UTC
 cron.schedule('56 10 * * 1', async () => {
   try {
-    const channel = await client.channels.fetch(CHANNEL_ID);
-    await generateMondayList(channel);
+    const sourceChannel = await client.channels.fetch(SOURCE_CHANNEL_ID);
+    const targetChannel = await client.channels.fetch(TARGET_CHANNEL_ID);
+    await generateMondayList(sourceChannel, targetChannel);
   } catch (err) {
     console.error('Monday scheduler error:', err);
   }
