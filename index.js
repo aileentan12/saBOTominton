@@ -431,13 +431,12 @@ async function handleSlotCountReply(message, rawInput) {
 
   const slotCount = parts[0];
   const courtCount = parts[1];
-  const playerCourts = courtCount - 1;
 
   try {
     const parsed = parseViberList(session.rawList);
-    // Update courts in header
+    // Update courts in header — use court count as-is (no minus 1)
     parsed.header = parsed.header.map(line =>
-      /^Courts:/i.test(line.trim()) ? `Courts: ${playerCourts} courts` : line
+      /^Courts:/i.test(line.trim()) ? `Courts: ${courtCount} courts` : line
     );
     const includeWalkInMarker = session.command === '!walkin';
     const result = buildList(parsed, slotCount, includeWalkInMarker);
