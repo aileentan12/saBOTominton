@@ -30,15 +30,20 @@ function getNextSaturday() {
 function formatDate(date) {
   return date.toLocaleDateString('en-US', {
     timeZone: 'Asia/Manila',
-    weekday: 'long',
     year: 'numeric',
     month: 'long',
     day: 'numeric',
   });
 }
 
+function resolveVenue(courtsRaw) {
+  if (/annex/i.test(courtsRaw)) return { venue: 'CCF Annex Gym', courts: courtsRaw.replace(/annex\s*/i, '').trim() };
+  if (/gm/i.test(courtsRaw)) return { venue: 'Goodminton Smash Zone', courts: courtsRaw.replace(/gm\s*/i, '').trim() };
+  return { venue: 'TBA', courts: courtsRaw.trim() };
+}
+
 function isPaid(text) {
-  return /\b(paid|pd)\b/i.test(text);
+  return /\b(paid|pd)\b|\(paid\)/i.test(text);
 }
 
 function isVolunteer(text) {
@@ -107,8 +112,8 @@ async function getVolunteersForDate(channel, targetDate) {
         sessionCourts = parts[1]?.trim() || '';
       }
 
-      const venueMatch = content.match(/(?:Venue|Where|Location)[:\s]+(.+)/i);
-      sessionVenue = venueMatch ? venueMatch[1].trim() : 'CCF Annex Gym';
+      // Venue and courts are both derived from the courts field e.g. "Annex 4 courts"
+      // resolveVenue is called later in generateMondayList after sessionCourts is set
 
       const blockStart = headers[i].index + headers[i][0].length;
       const blockEnd = i + 1 < headers.length ? headers[i + 1].index : content.length;
@@ -146,7 +151,8 @@ async function generateMondayList(channel) {
     return;
   }
 
-  const { volunteers, time, venue, courts } = result;
+  const { volunteers, time, courts: rawCourts } = result;
+  const { venue, courts } = resolveVenue(rawCourts);
   const dateStr = formatDate(saturday);
 
   const lines = [];
@@ -216,8 +222,11 @@ function parseViberList(raw) {
     if (/———.*———/.test(trimmed)) continue;
 
     const slotMatch = trimmed.match(/^(\d+)\.\s*(.*)/);
-    if (slotMatch) {
-      inSlots = true;
+
+    // Only treat as player slots AFTER "Thanks and see you!" or when already in slots/waitlist
+    // Prevents numbered reminder lines from being parsed as player slots
+    if (slotMatch && (inSlots || inWaitlist || inThankYou)) {
+      inSlots = !inWaitlist;
       inThankYou = false;
       const num = parseInt(slotMatch[1]);
       const text = slotMatch[2].trim();
