@@ -63,6 +63,37 @@ function resolveVenue(venueAndCourts) {
   return { venue, courts };
 }
 
+// ─── VOLUNTEER NAME MAP ─────────────────────────────────────────────────────
+const VOLUNTEER_NAMES = {
+  'arvin':  'Arvin Cruz - Adv',
+  'adrian': 'Adrian Villaflor - Int',
+  'jerby':  'Jerby Lopez - Int',
+  'j':      'Jerby Lopez - Int',
+  'romeo':  'Romeo Buban - Adv',
+  'daddy':  'Romeo Buban - Adv',
+  'dad':    'Romeo Buban - Adv',
+  'denise': 'Denise Regulto - Int',
+  'athena': 'Athena Regulto - Int',
+  'hope':   'Hope Agudo - Int',
+  'marvin': 'Marvin Despi - Adv',
+  'migs':   'Christian "Migs" Miguel - Int',
+  'mrmr':   'Mira Rofuli - Int',
+  'mira':   'Mira Rofuli - Int',
+  'ponj':   'Raul Roco - Int',
+  'raul':   'Raul Roco - Int',
+  'aileen': 'Aileen Tan - Int',
+  'gerry':  'Gerry Matias - Int',
+  'tim':    'Tim Macawili - Adv',
+  'vic':    'Vic Garfin - Int',
+};
+
+function resolveVolunteerName(raw) {
+  // Strip paid markers and tentative notes before lookup
+  const cleaned = raw.replace(/\s*-?\s*(paid|pd)\b/gi, '').replace(/\s*\(tentative\)/i, '').trim();
+  const key = cleaned.toLowerCase();
+  return VOLUNTEER_NAMES[key] || cleaned;
+}
+
 function isPaid(text) {
   return /\b(paid|pd)\b|\(paid\)/i.test(text);
 }
@@ -187,10 +218,11 @@ async function getVolunteersForDate(channel, targetDate) {
   const goingLines = goingMatch[1]
     .split('\n')
     .map(l => l.replace(/^[-•]\s*/, '').trim())
-    .filter(l => l.length > 0);
+    // Remove empty lines, lone asterisks (*Going:* markers), and Not Available markers
+    .filter(l => l.length > 0 && !/^\*{1,2}$/.test(l) && !/Going|Not Available/i.test(l));
 
-  // Tentative = confirmed
-  const volunteers = goingLines.map(name => name.replace(/\s*\(tentative\)/i, '').trim());
+  // Tentative = confirmed; resolve short names to full names
+  const volunteers = goingLines.map(name => resolveVolunteerName(name));
 
   return { volunteers, time: sessionTime, venueCode: sessionVenue };
 }
