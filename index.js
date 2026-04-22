@@ -91,12 +91,21 @@ async function sendChunked(channel, text, replyMsg) {
 async function getVolunteersForDate(channel, targetDate) {
   const messages = await channel.messages.fetch({ limit: 50 });
 
-  const monthName = targetDate.toLocaleString('en-US', { month: 'long', timeZone: 'Asia/Manila' });
+  const monthLong = targetDate.toLocaleString('en-US', { month: 'long', timeZone: 'Asia/Manila' });   // "April"
+  const monthShort = targetDate.toLocaleString('en-US', { month: 'short', timeZone: 'Asia/Manila' }); // "Apr"
   const day = targetDate.getDate();
+  const dayPadded = String(day).padStart(2, '0');
 
+  // Cover all common formats: "April 25", "April 25,", "Apr 25", "Apr 25,", "April 5", etc.
   const datePatterns = [
-    `${monthName} ${day}`,
-    `${monthName} ${String(day).padStart(2, '0')}`,
+    `${monthLong} ${day}`,
+    `${monthLong} ${dayPadded}`,
+    `${monthShort} ${day}`,
+    `${monthShort} ${dayPadded}`,
+    `${monthLong.toUpperCase()} ${day}`,
+    `${monthLong.toUpperCase()} ${dayPadded}`,
+    `${monthShort.toUpperCase()} ${day}`,
+    `${monthShort.toUpperCase()} ${dayPadded}`,
   ];
 
   let sessionBlock = null;
@@ -110,7 +119,8 @@ async function getVolunteersForDate(channel, targetDate) {
     const hasDate = datePatterns.some(p => content.includes(p));
     if (!hasDate) continue;
 
-    const headers = [...content.matchAll(/\*\*([A-Z][a-z]+ \d+[^*]*)\*\*/g)];
+    // Match bold headers with any month/date format: **Apr 25 (...)** or **April 25 (...)**
+    const headers = [...content.matchAll(/\*\*([A-Za-z]+ \d+[^*]*)\*\*/g)];
 
     for (let i = 0; i < headers.length; i++) {
       const headerText = headers[i][1];
