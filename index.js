@@ -124,15 +124,22 @@ async function getVolunteersForDate(channel, targetDate) {
   for (const [, msg] of messages) {
     const content = msg.content;
 
+    console.log('--- CHECKING MESSAGE ---');
+    console.log(content.substring(0, 200));
+    console.log('Date patterns:', datePatterns);
+    console.log('Has date match:', datePatterns.some(p => content.includes(p)));
+
     const hasDate = datePatterns.some(p => content.includes(p));
     if (!hasDate) continue;
 
     // Match bold headers with any month/date format: **Apr 25 (...)** or **April 25 (...)**
     const headers = [...content.matchAll(/\*\*([A-Za-z]+ \d+[^*]*)\*\*/g)];
+    console.log('Headers found:', headers.map(h => h[1]));
 
     for (let i = 0; i < headers.length; i++) {
       const headerText = headers[i][1];
       const matchesDate = datePatterns.some(p => headerText.startsWith(p));
+      console.log(`Header: "${headerText}" | matchesDate: ${matchesDate}`);
       if (!matchesDate) continue;
 
       // Extract time, venue, courts from: "3:00PM to 6:00PM, Annex 4 courts"
