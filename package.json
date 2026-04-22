@@ -1,0 +1,13 @@
+{
+  "name": "sabotominton",
+  "version": "1.0.0",
+  "description": "Discord bot for admin tasks like signup list generation and cleanups",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "discord.js": "^14.14.1",
+    "node-cron": "^3.0.3"
+  }
+}
