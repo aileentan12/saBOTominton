@@ -10,9 +10,9 @@ const client = new Client({
   partials: [Partials.Message, Partials.Channel],
 });
 
-// 🔁 CHANNEL CONFIG
-const SOURCE_CHANNEL_ID = process.env.SOURCE_CHANNEL_ID; // READ FROM (old)
-const TARGET_CHANNEL_ID = process.env.TARGET_CHANNEL_ID; // SEND + COMMANDS (new)
+// CHANNEL CONFIG
+const SOURCE_CHANNEL_ID = process.env.SOURCE_CHANNEL_ID; // read from
+const TARGET_CHANNEL_ID = process.env.TARGET_CHANNEL_ID; // commands + send
 
 const BOT_TOKEN = process.env.BOT_TOKEN;
 
@@ -66,26 +66,26 @@ function resolveVenue(venueAndCourts) {
 // ─── VOLUNTEERS ─────────────────────────────────────
 
 const VOLUNTEER_NAMES = {
-  arvin:'Arvin Cruz - Adv',
-  adrian:'Adrian Villaflor - Int',
-  jerby:'Jerby Lopez - Int',
-  j:'Jerby Lopez - Int',
-  romeo:'Romeo Buban - Adv',
-  daddy:'Romeo Buban - Adv',
-  dad:'Romeo Buban - Adv',
-  denise:'Denise Regulto - Int',
-  athena:'Athena Regulto - Int',
-  hope:'Hope Agudo - Int',
-  marvin:'Marvin Despi - Adv',
-  migs:'Christian "Migs" Miguel - Int',
-  mrmr:'Mira Rofuli - Int',
-  mira:'Mira Rofuli - Int',
-  ponj:'Raul Roco - Int',
-  raul:'Raul Roco - Int',
-  aileen:'Aileen Tan - Int',
-  gerry:'Gerry Matias - Int',
-  tim:'Tim Macawili - Adv',
-  vic:'Vic Garfin - Int',
+  'arvin':  'Arvin Cruz - Adv',
+  'adrian': 'Adrian Villaflor - Int',
+  'jerby':  'Jerby Lopez - Int',
+  'j':      'Jerby Lopez - Int',
+  'romeo':  'Romeo Buban - Adv',
+  'daddy':  'Romeo Buban - Adv',
+  'dad':    'Romeo Buban - Adv',
+  'denise': 'Denise Regulto - Int',
+  'athena': 'Athena Regulto - Int',
+  'hope':   'Hope Agudo - Int',
+  'marvin': 'Marvin Despi - Adv',
+  'migs':   'Christian "Migs" Miguel - Int',
+  'mrmr':   'Mira Rofuli - Int',
+  'mira':   'Mira Rofuli - Int',
+  'ponj':   'Raul Roco - Int',
+  'raul':   'Raul Roco - Int',
+  'aileen': 'Aileen Tan - Int',
+  'gerry':  'Gerry Matias - Int',
+  'tim':    'Tim Macawili - Adv',
+  'vic':    'Vic Garfin - Int',
 };
 
 function resolveVolunteerName(raw) {
@@ -101,7 +101,7 @@ function isVolunteer(text) {
   return text.trim().startsWith('*');
 }
 
-// ─── READ FROM SOURCE CHANNEL ───────────────────────
+// ─── READ SOURCE CHANNEL ────────────────────────────
 
 async function getVolunteersForDate(channel, targetDate) {
   const messages = await channel.messages.fetch({ limit: 50 });
@@ -158,8 +158,15 @@ async function getVolunteersForDate(channel, targetDate) {
 
   const volunteers = goingMatch[1]
     .split('\n')
-    .map(l => l.replace(/^[-•]\s*/, '').trim())
-    .filter(l => l && !/Going|Not Available/i.test(l))
+    .map(l =>
+      l.replace(/^[-•]\s*/, '') // remove bullets
+       .replace(/\*\*/g, '')    // remove ONLY double asterisks
+       .trim()
+    )
+    .filter(l =>
+      l.length > 0 &&
+      !/Going|Not Available/i.test(l)
+    )
     .map(resolveVolunteerName);
 
   return { volunteers, time: sessionTime, venueCode: sessionVenue };
@@ -179,11 +186,17 @@ async function generateMondayList(sourceChannel, targetChannel) {
   const { volunteers, time, venueCode } = result;
   const { venue, courts } = resolveVenue(venueCode);
 
-  let lines = [];
-  let i = 1;
+  const lines = [];
+  let slotNum = 1;
 
-  for (const v of volunteers) lines.push(`${i++}. *${v}`);
-  for (; i <= 24; i++) lines.push(`${i}.`);
+  for (const vol of volunteers) {
+    lines.push(`${slotNum}. *${vol}`);
+    slotNum++;
+  }
+
+  for (let i = slotNum; i <= 24; i++) {
+    lines.push(`${i}.`);
+  }
 
   const msg = [
     `Date: ${formatDate(saturday)}`,
@@ -200,42 +213,7 @@ async function generateMondayList(sourceChannel, targetChannel) {
   await targetChannel.send(msg);
 }
 
-// ─── LIST PARSER + BUILDER (UNCHANGED LOGIC) ───────
-
-function parseViberList(raw) {
-  const lines = raw.split('\n');
-  let header=[],slots=[],waitlist=[],inWaitlist=false,inSlots=false;
-
-  for (const line of lines) {
-    const trimmed=line.trim();
-    if(/^Waitlist/i.test(trimmed)){inWaitlist=true;inSlots=false;continue;}
-    const m=trimmed.match(/^(\d+)\.\s*(.*)/);
-    if(m){
-      const obj={num:+m[1],text:m[2].trim(),paid:isPaid(m[2]),isEmpty:!m[2]};
-      if(inWaitlist)waitlist.push(obj); else {inSlots=true;slots.push(obj);}
-      continue;
-    }
-    if(!inSlots&&!inWaitlist) header.push(line);
-  }
-  return {header,slots,waitlist};
-}
-
-function buildList(parsed,totalSlots,walkin){
-  const paid=[...parsed.slots.filter(s=>s.paid),...parsed.waitlist.filter(s=>s.paid)];
-  let lines=[],i=1;
-
-  for(const p of paid) lines.push(`${i++}. ${p.text}`);
-  for(;i<=totalSlots;i++) lines.push(`${i}.`);
-
-  if(walkin){
-    lines.splice(paid.length,0,'———P260 Game Fee———');
-    lines.push('———end of list———');
-  }
-
-  return [...parsed.header,'',...lines].join('\n');
-}
-
-// ─── COMMANDS (NEW CHANNEL ONLY) ───────────────────
+// ─── COMMAND HANDLER ────────────────────────────────
 
 client.on('messageCreate', async (message) => {
   if (message.author.bot) return;
@@ -244,32 +222,15 @@ client.on('messageCreate', async (message) => {
   const content = message.content.trim();
   const userId = message.author.id;
 
-  if (content.startsWith('!cleanup') || content.startsWith('!walkin')) {
-    const cmd = content.startsWith('!walkin') ? '!walkin' : '!cleanup';
-    const raw = content.slice(cmd.length).trim();
-
-    activeSessions[userId] = { raw, cmd };
-    return message.reply('How many slots?');
-  }
-
-  if (activeSessions[userId]) {
-    const slots = parseInt(content);
-    const { raw, cmd } = activeSessions[userId];
-    delete activeSessions[userId];
-
-    const parsed = parseViberList(raw);
-    const result = buildList(parsed, slots, cmd === '!walkin');
-    return message.reply(result);
-  }
-
   if (content === '!generatelist') {
     const source = await client.channels.fetch(SOURCE_CHANNEL_ID);
     const target = await client.channels.fetch(TARGET_CHANNEL_ID);
     await generateMondayList(source, target);
+    return;
   }
 });
 
-// ─── SCHEDULER ─────────────────────────────────────
+// ─── SCHEDULER ──────────────────────────────────────
 
 cron.schedule('56 10 * * 1', async () => {
   try {
@@ -281,7 +242,7 @@ cron.schedule('56 10 * * 1', async () => {
   }
 });
 
-// ─── READY ─────────────────────────────────────────
+// ─── READY ──────────────────────────────────────────
 
 client.once('ready', () => {
   console.log(`✅ Bot online as ${client.user.tag}`);
