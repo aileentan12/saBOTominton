@@ -122,6 +122,9 @@ async function getVolunteersForDate(channel, targetDate) {
   let sessionCourts = '';
 
   for (const [, msg] of messages) {
+    // Skip bot's own messages to avoid matching error messages
+    if (msg.author.bot) continue;
+
     const content = msg.content;
 
     console.log('--- CHECKING MESSAGE ---');
@@ -132,12 +135,13 @@ async function getVolunteersForDate(channel, targetDate) {
     const hasDate = datePatterns.some(p => content.includes(p));
     if (!hasDate) continue;
 
-    // Match bold headers with any month/date format: **Apr 25 (...)** or **April 25 (...)**
-    const headers = [...content.matchAll(/\*\*([A-Za-z]+ \d+[^*]*)\*\*/g)];
+    // Match date headers: **Apr 25 (...)** (bold) or Apr 25 (...) (plain)
+    const headerRegex = /\*{0,2}([A-Za-z]+ \d+\s*\([^)]+\))\*{0,2}/g;
+    const headers = [...content.matchAll(headerRegex)];
     console.log('Headers found:', headers.map(h => h[1]));
 
     for (let i = 0; i < headers.length; i++) {
-      const headerText = headers[i][1];
+      const headerText = headers[i][1].trim();
       const matchesDate = datePatterns.some(p => headerText.startsWith(p));
       console.log(`Header: "${headerText}" | matchesDate: ${matchesDate}`);
       if (!matchesDate) continue;
@@ -147,7 +151,6 @@ async function getVolunteersForDate(channel, targetDate) {
       if (timeMatch) {
         const parts = timeMatch[1].split(',');
         sessionTime = parts[0]?.trim() || '';
-        // parts[1] is e.g. "Annex 4 courts" — split into venue code and courts
         sessionVenue = (parts[1] || '').trim(); // full string e.g. "Annex 4 courts"
         sessionCourts = ''; // resolved later via resolveVenue
       }
@@ -171,7 +174,7 @@ async function getVolunteersForDate(channel, targetDate) {
   // Discord italic *Going:* appears as *Going:* in raw content
   // Also handle _Going:_ (underscore italic) and plain Going:
   // Match *Going:* (Discord italic) or plain Going:
-  const goingMatch = sessionBlock.match(/\*?Going:\*?([\s\S]*?)(?:\*?Not Available:\*?|$)/i);
+  const goingMatch = sessionBlock.match(/Going:?([\s\S]*?)(?:Not Available:|$)/i);
   if (!goingMatch) {
     console.log('No Going: section found in block');
     return { volunteers: [], time: sessionTime, venueCode: sessionVenue };
