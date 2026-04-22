@@ -19,11 +19,24 @@ const activeSessions = {};
 // ─── HELPERS ────────────────────────────────────────────────────────────────
 
 function getNextSaturday() {
-  const now = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Manila' }));
-  const day = now.getDay(); // 0=Sun, 6=Sat
-  const daysUntilSat = (6 - day + 7) % 7 || 7;
-  const sat = new Date(now);
-  sat.setDate(now.getDate() + daysUntilSat);
+  // Get current date in PHT using Intl
+  const now = new Date();
+  const phtParts = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'Asia/Manila',
+    year: 'numeric', month: 'numeric', day: 'numeric',
+    weekday: 'short',
+  }).formatToParts(now);
+
+  const weekday = phtParts.find(p => p.type === 'weekday').value; // e.g. "Mon"
+  const month = parseInt(phtParts.find(p => p.type === 'month').value) - 1;
+  const day = parseInt(phtParts.find(p => p.type === 'day').value);
+  const year = parseInt(phtParts.find(p => p.type === 'year').value);
+
+  const dayIndex = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].indexOf(weekday);
+  const daysUntilSat = dayIndex === 6 ? 7 : (6 - dayIndex); // if today is Sat, get NEXT Sat
+  // For Monday list generation, we always want the upcoming Saturday (not today)
+
+  const sat = new Date(year, month, day + daysUntilSat);
   return sat;
 }
 
