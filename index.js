@@ -49,10 +49,13 @@ function formatDate(date) {
   });
 }
 
-function resolveVenue(courtsRaw) {
-  if (/annex/i.test(courtsRaw)) return { venue: 'CCF Annex Gym', courts: courtsRaw.replace(/annex\s*/i, '').trim() };
-  if (/gm/i.test(courtsRaw)) return { venue: 'Goodminton Smash Zone', courts: courtsRaw.replace(/gm\s*/i, '').trim() };
-  return { venue: 'TBA', courts: courtsRaw.trim() };
+function resolveVenue(venueCode, courtsRaw) {
+  // venueCode is e.g. "Annex" or "GM"
+  // courtsRaw is e.g. "4 courts"
+  let venue = 'TBA';
+  if (/annex/i.test(venueCode)) venue = 'CCF Annex Gym 20th Floor';
+  else if (/goodminton|gm/i.test(venueCode)) venue = 'Goodminton Smash Zone';
+  return { venue, courts: courtsRaw.trim() };
 }
 
 function isPaid(text) {
@@ -127,16 +130,22 @@ async function getVolunteersForDate(channel, targetDate) {
       const matchesDate = datePatterns.some(p => headerText.startsWith(p));
       if (!matchesDate) continue;
 
-      // Extract time and courts: "May 2 (3:00PM to 6:00PM, Annex 4 courts)"
+      // Extract time, venue, courts from: "3:00PM to 6:00PM, Annex 4 courts"
       const timeMatch = headerText.match(/\(([^)]+)\)/);
       if (timeMatch) {
         const parts = timeMatch[1].split(',');
         sessionTime = parts[0]?.trim() || '';
-        sessionCourts = parts[1]?.trim() || '';
+        // parts[1] is e.g. "Annex 4 courts" — split into venue code and courts
+        const venueAndCourts = (parts[1] || '').trim();
+        const vcMatch = venueAndCourts.match(/^(\S+)\s+(.+)$/);
+        if (vcMatch) {
+          sessionVenue = vcMatch[1].trim();   // "Annex" or "GM"
+          sessionCourts = vcMatch[2].trim();  // "4 courts"
+        } else {
+          sessionVenue = venueAndCourts;
+          sessionCourts = '';
+        }
       }
-
-      // Venue and courts are both derived from the courts field e.g. "Annex 4 courts"
-      // resolveVenue is called later in generateMondayList after sessionCourts is set
 
       const blockStart = headers[i].index + headers[i][0].length;
       const blockEnd = i + 1 < headers.length ? headers[i + 1].index : content.length;
@@ -149,8 +158,22 @@ async function getVolunteersForDate(channel, targetDate) {
 
   if (!sessionBlock) return null;
 
-  const goingMatch = sessionBlock.match(/\*Going:\*([\s\S]*?)(?:\*Not Available:\*|$)/i);
-  if (!goingMatch) return { volunteers: [], time: sessionTime, venue: sessionVenue, courts: sessionCourts };
+  // Debug: log the session block to see what we're working with
+  console.log('--- SESSION BLOCK ---');
+  console.log(sessionBlock);
+  console.log('---------------------');
+
+  // Discord italic *Going:* appears as *Going:* in raw content
+  // Also handle _Going:_ (underscore italic) and plain Going:
+  const goingMatch = sessionBlock.match(/[*_]Going:[*_]([\s\S]*?)(?:[*_]Not Available:[*_]|$)/i);
+  if (!goingMatch) {
+    console.log('No Going: section found in block');
+    return { volunteers: [], time: sessionTime, venueCode: sessionVenue, courts: sessionCourts };
+  }
+
+  console.log('--- GOING SECTION ---');
+  console.log(goingMatch[1]);
+  console.log('---------------------');
 
   const goingLines = goingMatch[1]
     .split('\n')
@@ -160,7 +183,7 @@ async function getVolunteersForDate(channel, targetDate) {
   // Tentative = confirmed
   const volunteers = goingLines.map(name => name.replace(/\s*\(tentative\)/i, '').trim());
 
-  return { volunteers, time: sessionTime, venue: sessionVenue, courts: sessionCourts };
+  return { volunteers, time: sessionTime, venueCode: sessionVenue, courts: sessionCourts };
 }
 
 async function generateMondayList(channel) {
@@ -174,8 +197,8 @@ async function generateMondayList(channel) {
     return;
   }
 
-  const { volunteers, time, courts: rawCourts } = result;
-  const { venue, courts } = resolveVenue(rawCourts);
+  const { volunteers, time, venueCode, courts: rawCourts } = result;
+  const { venue, courts } = resolveVenue(venueCode, rawCourts);
   const dateStr = formatDate(saturday);
 
   const lines = [];
