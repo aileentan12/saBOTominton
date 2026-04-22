@@ -49,13 +49,18 @@ function formatDate(date) {
   });
 }
 
-function resolveVenue(venueCode, courtsRaw) {
-  // venueCode is e.g. "Annex" or "GM"
-  // courtsRaw is e.g. "4 courts"
+function resolveVenue(venueAndCourts) {
+  // venueAndCourts is the full string e.g. "Annex 4 courts" or "GM 3 courts" or "Goodminton 3 courts"
   let venue = 'TBA';
-  if (/annex/i.test(venueCode)) venue = 'CCF Annex Gym 20th Floor';
-  else if (/goodminton|gm/i.test(venueCode)) venue = 'Goodminton Smash Zone';
-  return { venue, courts: courtsRaw.trim() };
+  let courts = venueAndCourts.trim();
+  if (/annex/i.test(venueAndCourts)) {
+    venue = 'CCF Annex Gym 20th Floor';
+    courts = venueAndCourts.replace(/annex\s*/i, '').trim();
+  } else if (/goodminton|\bgm\b/i.test(venueAndCourts)) {
+    venue = 'Goodminton Smash Zone';
+    courts = venueAndCourts.replace(/goodminton\s*/i, '').replace(/\bgm\b\s*/i, '').trim();
+  }
+  return { venue, courts };
 }
 
 function isPaid(text) {
@@ -136,15 +141,8 @@ async function getVolunteersForDate(channel, targetDate) {
         const parts = timeMatch[1].split(',');
         sessionTime = parts[0]?.trim() || '';
         // parts[1] is e.g. "Annex 4 courts" — split into venue code and courts
-        const venueAndCourts = (parts[1] || '').trim();
-        const vcMatch = venueAndCourts.match(/^(\S+)\s+(.+)$/);
-        if (vcMatch) {
-          sessionVenue = vcMatch[1].trim();   // "Annex" or "GM"
-          sessionCourts = vcMatch[2].trim();  // "4 courts"
-        } else {
-          sessionVenue = venueAndCourts;
-          sessionCourts = '';
-        }
+        sessionVenue = (parts[1] || '').trim(); // full string e.g. "Annex 4 courts"
+        sessionCourts = ''; // resolved later via resolveVenue
       }
 
       const blockStart = headers[i].index + headers[i][0].length;
@@ -165,10 +163,11 @@ async function getVolunteersForDate(channel, targetDate) {
 
   // Discord italic *Going:* appears as *Going:* in raw content
   // Also handle _Going:_ (underscore italic) and plain Going:
-  const goingMatch = sessionBlock.match(/[*_]Going:[*_]([\s\S]*?)(?:[*_]Not Available:[*_]|$)/i);
+  // Match *Going:* (Discord italic) or plain Going:
+  const goingMatch = sessionBlock.match(/\*?Going:\*?([\s\S]*?)(?:\*?Not Available:\*?|$)/i);
   if (!goingMatch) {
     console.log('No Going: section found in block');
-    return { volunteers: [], time: sessionTime, venueCode: sessionVenue, courts: sessionCourts };
+    return { volunteers: [], time: sessionTime, venueCode: sessionVenue };
   }
 
   console.log('--- GOING SECTION ---');
@@ -183,7 +182,7 @@ async function getVolunteersForDate(channel, targetDate) {
   // Tentative = confirmed
   const volunteers = goingLines.map(name => name.replace(/\s*\(tentative\)/i, '').trim());
 
-  return { volunteers, time: sessionTime, venueCode: sessionVenue, courts: sessionCourts };
+  return { volunteers, time: sessionTime, venueCode: sessionVenue };
 }
 
 async function generateMondayList(channel) {
@@ -197,8 +196,8 @@ async function generateMondayList(channel) {
     return;
   }
 
-  const { volunteers, time, venueCode, courts: rawCourts } = result;
-  const { venue, courts } = resolveVenue(venueCode, rawCourts);
+  const { volunteers, time, venueCode } = result;
+  const { venue, courts } = resolveVenue(venueCode);
   const dateStr = formatDate(saturday);
 
   const lines = [];
