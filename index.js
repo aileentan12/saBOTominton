@@ -15,7 +15,7 @@ const TARGET_CHANNEL_ID = process.env.TARGET_CHANNEL_ID;
 const BOT_TOKEN = process.env.BOT_TOKEN;
 
 // Tracks ongoing command sessions: userId -> { step, rawList, command }
-const activeSessions = {};
+const activeSessions = {}; // userId -> { step, rawList, command, slotCount, courtCount }
 
 // ─── HELPERS ────────────────────────────────────────────────────────────────
 
@@ -53,15 +53,23 @@ function formatDate(date) {
 function resolveVenue(venueAndCourts) {
   // venueAndCourts is the full string e.g. "Annex 4 courts" or "GM 3 courts" or "Goodminton 3 courts"
   let venue = 'TBA';
-  let courts = venueAndCourts.trim();
+  let courtsRaw = venueAndCourts.trim();
   if (/annex/i.test(venueAndCourts)) {
     venue = 'CCF Annex Gym 20th Floor';
-    courts = venueAndCourts.replace(/annex\s*/i, '').trim();
+    courtsRaw = venueAndCourts.replace(/annex\s*/i, '').trim();
   } else if (/goodminton|\bgm\b/i.test(venueAndCourts)) {
     venue = 'Goodminton Smash Zone';
-    courts = venueAndCourts.replace(/goodminton\s*/i, '').replace(/\bgm\b\s*/i, '').trim();
+    courtsRaw = venueAndCourts.replace(/goodminton\s*/i, '').replace(/\bgm\b\s*/i, '').trim();
   }
-  return { venue, courts };
+
+  // Extract numeric court count e.g. "4 courts" -> 4
+  const courtNumMatch = courtsRaw.match(/(\d+)/);
+  const totalCourts = courtNumMatch ? parseInt(courtNumMatch[1]) : null;
+  const playerCourts = totalCourts ? totalCourts - 1 : null;
+  const slots = playerCourts ? playerCourts * 8 : 24;
+  const courtsLabel = playerCourts ? `${playerCourts} courts` : courtsRaw;
+
+  return { venue, courts: courtsLabel, slots };
 }
 
 // ─── VOLUNTEER NAME MAP ─────────────────────────────────────────────────────
@@ -240,7 +248,7 @@ async function generateMondayList(sourceChannel, targetChannel) {
   }
 
   const { volunteers, time, venueCode } = result;
-  const { venue, courts } = resolveVenue(venueCode);
+  const { venue, courts, slots: totalSlots } = resolveVenue(venueCode);
   const dateStr = formatDate(saturday);
 
   const lines = [];
@@ -249,7 +257,7 @@ async function generateMondayList(sourceChannel, targetChannel) {
     lines.push(`${slotNum}. *${vol}`);
     slotNum++;
   }
-  for (let i = slotNum; i <= 24; i++) {
+  for (let i = slotNum; i <= totalSlots; i++) {
     lines.push(`${i}.  `);
   }
 
@@ -406,15 +414,31 @@ async function handleListCommand(message, command, rawList) {
     return;
   }
   activeSessions[message.author.id] = { step: 'awaiting_slots', rawList, command };
-  await message.reply('How many slots for this session? (e.g. `24`)');
+  await message.reply('How many slots and courts? (e.g. `24, 3`)');
 }
 
-async function handleSlotCountReply(message, slotCount) {
+async function handleSlotCountReply(message, rawInput) {
   const session = activeSessions[message.author.id];
+
+  // Parse "24, 3" or "24,3" or "24 3"
+  const parts = rawInput.trim().split(/[,\s]+/).map(p => parseInt(p)).filter(n => !isNaN(n));
+  if (parts.length < 2) {
+    await message.reply('Please provide both slots and courts. (e.g. `24, 3`)');
+    return;
+  }
+
   delete activeSessions[message.author.id];
+
+  const slotCount = parts[0];
+  const courtCount = parts[1];
+  const playerCourts = courtCount - 1;
 
   try {
     const parsed = parseViberList(session.rawList);
+    // Update courts in header
+    parsed.header = parsed.header.map(line =>
+      /^Courts:/i.test(line.trim()) ? `Courts: ${playerCourts} courts` : line
+    );
     const includeWalkInMarker = session.command === '!walkin';
     const result = buildList(parsed, slotCount, includeWalkInMarker);
     await sendChunked(message.channel, result, message);
@@ -449,12 +473,12 @@ client.on('messageCreate', async (message) => {
 
   // Awaiting slot count reply
   if (activeSessions[userId]?.step === 'awaiting_slots') {
-    const slotCount = parseInt(content);
-    if (isNaN(slotCount) || slotCount < 1) {
-      await message.reply('Please reply with a valid number (e.g. `24`).');
+    const parts = content.trim().split(/[,\s]+/).map(p => parseInt(p)).filter(n => !isNaN(n));
+    if (parts.length < 2) {
+      await message.reply('Please provide both slots and courts. (e.g. `24, 3`)');
       return;
     }
-    await handleSlotCountReply(message, slotCount);
+    await handleSlotCountReply(message, content);
     return;
   }
 
