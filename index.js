@@ -258,7 +258,11 @@ async function generateMondayList(sourceChannel, targetChannel) {
     slotNum++;
   }
   for (let i = slotNum; i <= totalSlots; i++) {
-    lines.push(`${i}.  `);
+    if (i > totalSlots - 3) {
+      lines.push(`${i}. (Reserved for a first timer)`);
+    } else {
+      lines.push(`${i}.  `);
+    }
   }
 
   const header = [
