@@ -332,7 +332,7 @@ function parseViberList(raw) {
       const text = slotMatch[2].trim();
       const paid = isPaid(text);
       const volunteer = isVolunteer(text);
-      const isEmpty = text === '';
+      const isEmpty = text === '' || /reserved for a first timer/i.test(text);
 
       if (inWaitlist) {
         waitlist.push({ num, text, paid, volunteer, isEmpty });
