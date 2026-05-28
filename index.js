@@ -265,22 +265,33 @@ async function generateMondayList(sourceChannel, targetChannel) {
     }
   }
 
+  // Capitalize courts label e.g. "3 courts" -> "3 Courts"
+  const courtsDisplay = courts.replace(/courts/i, 'Courts');
+
   const header = [
-    `Date: ${dateStr}`,
-    `Time: ${time}`,
-    `Where: ${venue}`,
-    `Courts: ${courts}`,
+    '🏸 SABADOMINTON 🏸',
     '',
-    'REMINDERS:',
-    '1. If you are playing for the first time in this group, please answer the one time registration form at https://bit.ly/SabadomintonMember.',
-    '2. Please pay game fee of P240 (court fee + shuttle) via GCash to JERBY LOPEZ at (09172742771) and indicate in the note: Badminton Fee from <Nickname>. Send GCash Receipt here in the GC with your full name and tag your name as paid.',
-    '3. No payment, no play. Deadline of payment is on Wed, 7pm. Otherwise, your slot will be given to waitlisted players. Waitlisted players must pay by Thurs, 7pm to secure their slots.',
-    '4. Payments made after Thurs 7pm, including same day walk-ins will be charged with P260.',
-    '5. Any cancellations made after the Thurs 7pm cut off will be considered FORFEITED and cannot be used in succeeding games UNLESS a replacement is found. Please understand that we pay the court according to the confirmed players by cutoff.',
-    '6. The untaken (and unpaid) reserved slots for first timers will be given to waitlisted players by Wed 7pm.',
-    '7. For any questions/concerns, please reach out to any of the volunteers marked with * below.',
+    `📅 ${dateStr}`,
+    `⏰ ${time}`,
+    `📍 ${venue}`,
+    `🏟️ ${courtsDisplay}`,
     '',
-    'Thanks and see you!',
+    '🐥 Early Bird: ₱240',
+    '(after Thurs 7PM = Regular Rate ₱260)',
+    '',
+    '💸 GCash: JERBY LOPEZ — 09172742771',
+    '',
+    '📝 Note: "from <name>"',
+    '📸 Send receipt in GC + tag yourself as PAID ✅',
+    '',
+    '🚨 REMINDERS:',
+    '• First timers: https://bit.ly/SabadomintonMember',
+    '• No pay = no play',
+    '• Pay by Wed 7PM or slot goes to waitlist 👀',
+    '• Waitlisted players must pay by Thurs 7PM',
+    '• Cancel after Thurs 7PM = forfeited unless replaced',
+    '',
+    'See you on court 🏸🔥',
     '',
   ].join('\n');
 
