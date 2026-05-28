@@ -280,8 +280,6 @@ async function generateMondayList(sourceChannel, targetChannel) {
     '(after Thurs 7PM = Regular Rate ₱260)',
     '',
     '💸 GCash: JERBY LOPEZ — 09172742771',
-    '',
-    '📝 Note: "from <name>"',
     '📸 Send receipt in GC + tag yourself as PAID ✅',
     '',
     '🚨 REMINDERS:',
@@ -451,7 +449,7 @@ async function handleSlotCountReply(message, rawInput) {
     const parsed = parseViberList(session.rawList);
     // Update courts in header — use court count as-is (no minus 1)
     parsed.header = parsed.header.map(line =>
-      /^🏟️ /i.test(line.trim()) ? `🏟️ ${courtCount} Courts` : line
+      /^🏟️/i.test(line.trim()) ? `🏟️ ${courtCount} Courts` : line
     );
     const includeWalkInMarker = session.command === '!walkin';
     const result = buildList(parsed, slotCount, includeWalkInMarker);
