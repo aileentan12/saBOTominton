@@ -325,8 +325,8 @@ function parseViberList(raw) {
   for (const line of lines) {
     const trimmed = line.trim();
 
-    if (/^REMINDERS:/i.test(trimmed)) { inReminders = true; inThankYou = false; }
-    if (/^Thanks and see you/i.test(trimmed)) { inReminders = false; inThankYou = true; }
+    if (/^🏸 SABADOMINTON 🏸/i.test(trimmed)) { inReminders = true; inThankYou = false; }
+    if (/^See you on court 🏸🔥/i.test(trimmed)) { inReminders = false; inThankYou = true; }
     if (/^Waitlist/i.test(trimmed)) { inWaitlist = true; inSlots = false; inThankYou = false; continue; }
 
     // Skip existing markers
@@ -334,7 +334,7 @@ function parseViberList(raw) {
 
     const slotMatch = trimmed.match(/^(\d+)\.\s*(.*)/);
 
-    // Only treat as player slots AFTER "Thanks and see you!" or when already in slots/waitlist
+    // Only treat as player slots AFTER "See you on court 🏸🔥" or when already in slots/waitlist
     // Prevents numbered reminder lines from being parsed as player slots
     if (slotMatch && (inSlots || inWaitlist || inThankYou)) {
       inSlots = !inWaitlist;
@@ -451,7 +451,7 @@ async function handleSlotCountReply(message, rawInput) {
     const parsed = parseViberList(session.rawList);
     // Update courts in header — use court count as-is (no minus 1)
     parsed.header = parsed.header.map(line =>
-      /^Courts:/i.test(line.trim()) ? `Courts: ${courtCount} courts` : line
+      /^🏟️ /i.test(line.trim()) ? `🏟️ ${courtCount} Courts` : line
     );
     const includeWalkInMarker = session.command === '!walkin';
     const result = buildList(parsed, slotCount, includeWalkInMarker);
