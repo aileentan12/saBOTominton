@@ -447,10 +447,11 @@ async function handleSlotCountReply(message, rawInput) {
 
   try {
     const parsed = parseViberList(session.rawList);
-    // Update courts in header — use court count as-is (no minus 1)
-    parsed.header = parsed.header.map(line =>
-      /^🏟️/i.test(line.trim()) ? `🏟️ ${courtCount} Courts` : line
-    );
+    // Update courts in header or reminderLines — use court count as-is (no minus 1)
+    const updateCourtsLine = line =>
+      /^🏟️/i.test(line.trim()) ? `🏟️ ${courtCount} Courts` : line;
+    parsed.header = parsed.header.map(updateCourtsLine);
+    parsed.reminderLines = parsed.reminderLines.map(updateCourtsLine);
     const includeWalkInMarker = session.command === '!walkin';
     const result = buildList(parsed, slotCount, includeWalkInMarker);
     await sendChunked(message.channel, result, message);
