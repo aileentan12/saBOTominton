@@ -250,6 +250,7 @@ async function generateMondayList(sourceChannel, targetChannel) {
   const { volunteers, time, venueCode } = result;
   const { venue, courts, slots: totalSlots } = resolveVenue(venueCode);
   const dateStr = formatDate(saturday);
+  const earlyBirdFee = venue === 'Goodminton Smash Zone' ? 250 : 200;
 
   const lines = [];
   let slotNum = 1;
@@ -276,8 +277,8 @@ async function generateMondayList(sourceChannel, targetChannel) {
     `📍 ${venue}`,
     `🏟️ ${courtsDisplay}`,
     '',
-    '🐥 Early Bird: ₱240',
-    '(after Thurs 7PM = Regular Rate ₱260)',
+    `🐥 Early Bird: ₱${earlyBirdFee}`,
+    '(after Thurs 7PM = Regular Rate ₱220)',
     '',
     '💸 GCash: JERBY LOPEZ — 09172742771',
     '📸 Send receipt in GC + tag yourself as PAID ✅',
@@ -390,7 +391,7 @@ function buildList(parsed, totalSlots, includeWalkInMarker) {
     let lastPaidIndex = promoted.length - 1;
     for (let i = 0; i < mainLines.length; i++) {
       finalMainLines.push(mainLines[i]);
-      if (i === lastPaidIndex) finalMainLines.push('———P260 Game Fee———');
+      if (i === lastPaidIndex) finalMainLines.push('———P220 Game Fee———');
     }
     finalMainLines.push('———end of list———');
   } else {
@@ -516,7 +517,7 @@ client.on('messageCreate', async (message) => {
       'Moves unpaid players to waitlist, promotes paid waitlisted players to open slots.',
       '',
       '`!walkin [paste Viber list]`',
-      'Same as `!cleanup` but also adds the P260 walk-in rate marker after the last paid slot.',
+      'Same as `!cleanup` but also adds the P220 walk-in rate marker after the last paid slot.',
       'Use this after the Thursday 7PM cutoff.',
       '',
       '`!help`',
