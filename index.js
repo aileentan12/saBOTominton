@@ -50,11 +50,22 @@ function formatDate(date) {
   });
 }
 
+const CELEBRITY_VENUE = 'Celebrity Sports Club QC - https://maps.app.goo.gl/3e5kt63kRBgqB5Jv6';
+
+function isCelebrityVenue(venue) {
+  return /celebrity/i.test(venue || '');
+}
+
 function resolveVenue(venueAndCourts) {
   // venueAndCourts is the full string e.g. "Annex 4 courts" or "GM 3 courts" or "Goodminton 3 courts"
   let venue = 'TBA';
   let courtsRaw = venueAndCourts.trim();
-  if (/annex/i.test(venueAndCourts)) {
+  let isCelebrity = false;
+  if (/celebrity/i.test(venueAndCourts)) {
+    venue = CELEBRITY_VENUE;
+    isCelebrity = true;
+    courtsRaw = venueAndCourts.replace(/celebrity\s*/i, '').trim();
+  } else if (/annex/i.test(venueAndCourts)) {
     venue = 'CCF Annex Gym 20th Floor';
     courtsRaw = venueAndCourts.replace(/annex\s*/i, '').trim();
   } else if (/goodminton|\bgm\b/i.test(venueAndCourts)) {
@@ -65,7 +76,8 @@ function resolveVenue(venueAndCourts) {
   // Extract numeric court count e.g. "4 courts" -> 4
   const courtNumMatch = courtsRaw.match(/(\d+)/);
   const totalCourts = courtNumMatch ? parseInt(courtNumMatch[1]) : null;
-  const playerCourts = totalCourts ? totalCourts - 1 : null;
+  // Celebrity uses all courts for players (no "minus 1"); Annex/GM reserve one court
+  const playerCourts = totalCourts ? (isCelebrity ? totalCourts : totalCourts - 1) : null;
   const slots = playerCourts ? playerCourts * 8 : 24;
   const courtsLabel = playerCourts ? `${playerCourts} courts` : courtsRaw;
 
@@ -251,6 +263,7 @@ async function generateMondayList(sourceChannel, targetChannel) {
   const { venue, courts, slots: totalSlots } = resolveVenue(venueCode);
   const dateStr = formatDate(saturday);
   const earlyBirdFee = venue === 'Goodminton Smash Zone' ? 250 : 200;
+  const isCelebrity = isCelebrityVenue(venue);
 
   const lines = [];
   let slotNum = 1;
@@ -269,7 +282,7 @@ async function generateMondayList(sourceChannel, targetChannel) {
   // Capitalize courts label e.g. "3 courts" -> "3 Courts"
   const courtsDisplay = courts.replace(/courts/i, 'Courts');
 
-  const header = [
+  const topLines = [
     '🏸 SABADOMINTON 🏸',
     '',
     `📅 ${dateStr}`,
@@ -277,18 +290,34 @@ async function generateMondayList(sourceChannel, targetChannel) {
     `📍 ${venue}`,
     `🏟️ ${courtsDisplay}`,
     '',
-    `🐥 Early Bird: ₱${earlyBirdFee}`,
-    ...(venue === 'Goodminton Smash Zone' ? [] : ['(after Thurs 7PM = Regular Rate ₱220)']),
-    '',
-    '💸 GCash: JERBY LOPEZ — 09172742771',
-    '📸 Send receipt in GC + tag yourself as PAID ✅',
-    '',
-    '🚨 REMINDERS:',
-    '• First timers: https://bit.ly/SabadomintonMember',
-    '• No pay = no play',
-    '• Pay by Wed 7PM or slot goes to waitlist 👀',
-    '• Waitlisted players must pay by Thurs 7PM',
-    '• Cancel after Thurs 7PM = forfeited unless replaced',
+  ];
+
+  const bodyLines = isCelebrity
+    ? [
+        '🐥 ₱250 - 300 (includes entrance fee, court fee, and shuttle)',
+        '',
+        '🚨 REMINDERS:',
+        '• First timers: https://bit.ly/SabadomintonMember',
+        '• Payment will be collected during the day of the queueing.',
+      ]
+    : [
+        `🐥 Early Bird: ₱${earlyBirdFee}`,
+        ...(venue === 'Goodminton Smash Zone' ? [] : ['(after Thurs 7PM = Regular Rate ₱220)']),
+        '',
+        '💸 GCash: JERBY LOPEZ — 09172742771',
+        '📸 Send receipt in GC + tag yourself as PAID ✅',
+        '',
+        '🚨 REMINDERS:',
+        '• First timers: https://bit.ly/SabadomintonMember',
+        '• No pay = no play',
+        '• Pay by Wed 7PM or slot goes to waitlist 👀',
+        '• Waitlisted players must pay by Thurs 7PM',
+        '• Cancel after Thurs 7PM = forfeited unless replaced',
+      ];
+
+  const header = [
+    ...topLines,
+    ...bodyLines,
     '',
     'See you on court 🏸🔥',
     '',
@@ -364,7 +393,7 @@ function parseViberList(raw) {
 
 // ─── LIST BUILDER ─────────────────────────────────────────────────────────────
 
-function buildList(parsed, totalSlots, includeWalkInMarker) {
+function buildList(parsed, totalSlots, includeWalkInMarker, isCelebrity = false) {
   const { header, reminderLines, thankYouLines, slots, waitlist } = parsed;
 
   const paidSlots = slots.filter(s => !s.isEmpty && s.paid);
@@ -374,8 +403,8 @@ function buildList(parsed, totalSlots, includeWalkInMarker) {
 
   const promoted = [...paidSlots, ...paidWaitlisted];
 
-  // Open slots 25-30 if 24+ paid players
-  const extraSlots = promoted.length >= 24 ? 6 : 0;
+  // Open slots 25-30 if 24+ paid players (disabled for Celebrity)
+  const extraSlots = !isCelebrity && promoted.length >= 24 ? 6 : 0;
   const effectiveTotal = Math.max(totalSlots, promoted.length) + extraSlots;
 
   // Build main slot lines
@@ -454,7 +483,8 @@ async function handleSlotCountReply(message, rawInput) {
     parsed.header = parsed.header.map(updateCourtsLine);
     parsed.reminderLines = parsed.reminderLines.map(updateCourtsLine);
     const includeWalkInMarker = session.command === '!walkin';
-    const result = buildList(parsed, slotCount, includeWalkInMarker);
+    const isCelebrity = parsed.header.concat(parsed.reminderLines).some(l => /^📍/.test(l.trim()) && isCelebrityVenue(l));
+    const result = buildList(parsed, slotCount, includeWalkInMarker, isCelebrity);
     await sendChunked(message.channel, result, message);
   } catch (err) {
     console.error(err);
