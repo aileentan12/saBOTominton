@@ -304,7 +304,7 @@ async function generateMondayList(sourceChannel, targetChannel) {
         `🐥 Early Bird: ₱${earlyBirdFee}`,
         ...(venue === 'Goodminton Smash Zone' ? [] : ['(after Thurs 7PM = Regular Rate ₱220)']),
         '',
-        '💸 GCash: JERBY LOPEZ — 09172742771',
+        '💸 GCash: AR**N C. — 09626098545',
         '📸 Send receipt in GC + tag yourself as PAID ✅',
         '',
         '🚨 REMINDERS:',
